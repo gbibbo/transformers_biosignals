@@ -1,6 +1,6 @@
 # Transformer-Based Self-Supervised Multimodal Emotion Recognition
 
-This project implements a preliminary version of the paper "Transformer-Based Self-Supervised Multimodal Representation Learning for Wearable Emotion Recognition" using EDA, BVP (similar to HR), and TEMP data with synthetically generated emotions.
+This project implements a preliminary version of the paper "Transformer-Based Self-Supervised Multimodal Representation Learning for Wearable Emotion Recognition" using EDA, BVP (similar to HR), and TEMP from "In-Gauge and En-Gage" dataset with synthetically generated emotions.
 
 ## Key Differences from Original Paper
 
