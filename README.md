@@ -8,6 +8,10 @@ This project implements a preliminary version of the paper "Transformer-Based Se
 - Focuses only on EDA, BVP, and TEMP modalities
 - Simplified model architecture and training process
 
+## Dataset
+
+Download the files using your terminal: ```wget -r -N -c -np https://physionet.org/files/in-gauge-and-en-gage/1.0.0/```
+
 ## Results
 
 Mean accuracy: 0.9355539986896816
