@@ -26,6 +26,6 @@ Std accuracy: 0.03889275184490556
 
 ## Citation
 
-Gao, N., Marschall, M., Burry, J., Watkins, S., & Salim, F. In-Gauge and En-Gage: Understanding Occupants' Behaviour, Engagement, Emotion, and Comfort Indoors with Heterogeneous Sensors and Wearables.
+Gao, N., Marschall, M., Burry, J., Watkins, S., & Salim, F. (2023). In-Gauge and En-Gage: Understanding Occupants' Behaviour, Engagement, Emotion, and Comfort Indoors with Heterogeneous Sensors and Wearables (version 1.0.0). PhysioNet.
 
 Wu, Y., Daoudi, M., & Amad, A. (2023). Transformer-based self-supervised multimodal representation learning for wearable emotion recognition. IEEE Transactions on Affective Computing, 15(1), 157-172.
