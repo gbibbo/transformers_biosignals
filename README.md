@@ -11,6 +11,7 @@ This project implements a preliminary version of the paper "Transformer-Based Se
 ## Results
 
 Mean accuracy: 0.9355539986896816
+
 Std accuracy: 0.03889275184490556
 
 ## Visualizations
