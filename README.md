@@ -1,30 +1,30 @@
 # Wearable Biosignal Transformer Prototype
 
-PyTorch prototype for multimodal wearable time-series modeling using electrodermal activity, blood volume pulse, and temperature signals from the PhysioNet In-Gauge and En-Gage dataset.
+PyTorch prototype for multimodal wearable time-series modeling with electrodermal activity, blood volume pulse, and temperature signals from the PhysioNet In-Gauge and En-Gage dataset.
 
-The repository starts from raw participant-level wearable CSV files, aligns heterogeneous sensor streams, builds fixed-length windows, pretrains a sequence model with a self-supervised transformation task, and evaluates a TCN plus Transformer classifier with participant-grouped cross-validation.
+The project starts from participant-level wearable CSV files, aligns heterogeneous sensor streams, builds fixed-length windows, pretrains a sequence model with a self-supervised transformation task, and evaluates a TCN plus Transformer classifier with participant-grouped cross-validation.
 
-This is an exploratory research engineering project. It is not a validated emotion-recognition system. The current labels are synthetic proxies derived from signal statistics, so the reported accuracy should be read as a pipeline sanity check, not as affect-recognition performance.
+The current labels are synthetic proxies derived from signal statistics. The reported accuracy should therefore be read as an end-to-end pipeline sanity check, not as validated emotion-recognition performance.
 
-![Confusion Matrix](confusion_matrix.png)
+![Pretraining loss](pretraining_loss.png)
 
 ## Overview
 
-Wearable physiological data is noisy, multimodal, and unevenly sampled. EDA and temperature are available at lower sampling rates than BVP, and any useful modeling workflow needs to make those streams comparable before training a model.
+Wearable biosignals are multimodal, noisy, and unevenly sampled. In this dataset, EDA and temperature are sampled at a lower rate than BVP, so the first part of the workflow is signal alignment: resampling, trimming, filtering, normalization, and fixed-window segmentation.
 
-This project implements that workflow in a compact script:
+The implementation keeps the experiment compact and inspectable in `main.py`. It covers the path from raw files to model training and diagnostic plots:
 
-- loads EDA, BVP, and TEMP files from the PhysioNet directory structure
-- downsamples BVP to match the 4 Hz EDA and TEMP rate
-- trims all modalities to a shared valid length
-- removes invalid rows
-- filters EDA, BVP, and TEMP with Butterworth low-pass filters
-- normalizes each participant sequence with z-score scaling
-- cuts the aligned signals into 60-second non-overlapping windows
-- generates synthetic activation and valence-style proxy labels
-- pretrains the model on transformation classification
-- fine-tunes and evaluates with grouped cross-validation by participant identifier
-- saves diagnostic plots for inspection
+- load EDA, BVP, and TEMP files from the PhysioNet directory structure
+- downsample BVP to match the 4 Hz EDA and TEMP rate
+- trim all modalities to a shared valid length
+- remove invalid rows
+- filter EDA, BVP, and TEMP with Butterworth low-pass filters
+- normalize each participant sequence with z-score scaling
+- cut aligned signals into 60-second non-overlapping windows
+- generate synthetic activation and valence-style proxy labels
+- pretrain the model on transformation recognition
+- fine-tune and evaluate with participant-grouped cross-validation
+- save loss, accuracy, and confusion-matrix diagnostics
 
 ## Data
 
@@ -36,13 +36,13 @@ physionet.org/files/in-gauge-and-en-gage/1.0.0/class_wearable_data/
 
 The current implementation reads three wearable modalities:
 
-| Modality | Source file | Role in the pipeline |
+| Modality | Source file | Use in the pipeline |
 |---|---|---|
 | EDA | `EDA.csv` | Electrodermal activity signal |
 | BVP | `BVP.csv` | Blood volume pulse signal, downsampled by a factor of 16 |
 | TEMP | `TEMP.csv` | Peripheral temperature signal |
 
-Each window has shape:
+Each model input window has shape:
 
 ```text
 240 samples x 3 modalities
@@ -50,30 +50,45 @@ Each window has shape:
 
 This corresponds to 60 seconds at 4 Hz.
 
-## Modeling workflow
+## Signal preparation
 
-The model combines a temporal convolutional front end with a Transformer encoder:
+The preprocessing stage converts participant-level sensor files into aligned windows suitable for sequence modeling.
+
+| Step | Implementation |
+|---|---|
+| Rate matching | BVP is downsampled to the 4 Hz rate used by EDA and TEMP |
+| Alignment | Modalities are trimmed to their shared valid length |
+| Cleaning | Invalid values are removed before model input construction |
+| Filtering | Low-pass Butterworth filters are applied to each modality |
+| Normalization | Each participant sequence is z-scored |
+| Windowing | Signals are split into 60-second non-overlapping windows |
+| Labels | Activation and valence-style proxy classes are computed from signal statistics |
+
+The proxy labels make the experiment useful for checking preprocessing, batching, model wiring, grouped evaluation, and plotting. They are not a substitute for validated affect annotations.
+
+## Model
+
+The model combines local temporal convolution with a Transformer encoder.
 
 | Component | Implementation |
 |---|---|
 | Local temporal encoder | Two 1D convolution blocks with batch normalization, ReLU, and dropout |
-| Sequence encoder | Sinusoidal positional encoding plus 2-layer Transformer encoder |
+| Positional information | Sinusoidal positional encoding |
+| Sequence encoder | 2-layer Transformer encoder |
 | Pooling | Mean pooling across time |
 | Classifier | Linear projection to three proxy classes |
 
-Before supervised training, the model is pretrained on a simple transformation-recognition task. For each input window, the script creates:
+Before supervised training, the model is pretrained on a transformation-recognition task. For each input window, the script creates:
 
 1. the original signal
 2. a noisy version
 3. a magnitude-warped version
 
-The model learns to classify which transformation was applied.
-
-![Pretraining Loss](pretraining_loss.png)
+The model learns to classify which transformation was applied. This gives a lightweight self-supervised pretraining stage before the proxy-label classifier is fine-tuned.
 
 ## Evaluation
 
-The supervised evaluation uses `LeaveOneGroupOut` cross-validation, grouping by participant identifier. This avoids a fully random split where windows from the same participant could appear in both train and test sets.
+The supervised evaluation uses `LeaveOneGroupOut` cross-validation, grouping by participant identifier. This is stricter than a fully random window split, because windows from the same participant do not appear in both train and test folds.
 
 The current script evaluates the first 10,000 windows after preprocessing.
 
@@ -86,9 +101,11 @@ The current script evaluates the first 10,000 windows after preprocessing.
 | Supervised epochs per fold | 2 |
 | Evaluation subset | First 10,000 windows |
 
-![Accuracy Distribution](accuracy_boxplot.png)
+![Accuracy distribution](accuracy_boxplot.png)
 
-The confusion matrix shows that most samples belong to the neutral proxy class. For that reason, the accuracy is useful for checking that the pipeline runs end to end, but it should not be interpreted as evidence of reliable emotion recognition.
+The confusion matrix shows that most samples belong to the neutral proxy class, so plain accuracy is not enough to characterize model behavior. The result is useful as an execution check for the full pipeline. A stronger evaluation would add class counts, balanced accuracy, macro F1, per-class precision, and per-class recall.
+
+![Confusion matrix](confusion_matrix.png)
 
 ## Repository structure
 
@@ -96,9 +113,9 @@ The confusion matrix shows that most samples belong to the neutral proxy class. 
 .
 ├── README.md
 ├── main.py
-├── confusion_matrix.png
+├── pretraining_loss.png
 ├── accuracy_boxplot.png
-└── pretraining_loss.png
+└── confusion_matrix.png
 ```
 
 ## Run the experiment
@@ -106,7 +123,7 @@ The confusion matrix shows that most samples belong to the neutral proxy class. 
 Clone the repository:
 
 ```bash
-git clone https://github.com/<your-username>/transformers_biosignals.git
+git clone https://github.com/gbibbo/transformers_biosignals.git
 cd transformers_biosignals
 ```
 
@@ -158,21 +175,11 @@ confusion_matrix.png
 
 The script also prints the loaded data shape, fold accuracies, mean accuracy, and standard deviation.
 
-## Current scope
+## Current status
 
-This repository is intentionally framed as a prototype. The main constraints are:
+This is an exploratory research engineering prototype. The main implementation choices are intentionally simple enough to inspect in one script.
 
-- the labels are synthetic proxies, not validated affect annotations
-- the setup is not a faithful reproduction of the reference paper
-- only EDA, BVP, and TEMP are used
-- the script is monolithic and would benefit from modularization
-- the evaluation would be stronger with balanced accuracy, macro F1, per-class precision, per-class recall, and explicit class counts
-- the experiment should add fixed random seeds and saved run metadata for stricter reproducibility
-- the current evaluation bookkeeping should be cleaned so fold metrics are recorded once per fold
-
-## Next improvements
-
-The most useful next step would be to turn the prototype into a cleaner experiment package:
+The most useful next cleanup would be to turn the prototype into a small experiment package:
 
 ```text
 src/
@@ -191,8 +198,10 @@ A stronger version would also add:
 - deterministic seeds
 - saved configuration files for each run
 - per-class metrics
-- a lightweight notebook that reproduces the figures from a small sample
-- real downstream labels or a better-defined self-supervised evaluation task
+- explicit class-count reporting
+- cleaned fold-level metric bookkeeping
+- a small notebook that reproduces the figures from a sample run
+- validated downstream labels or a better-defined self-supervised evaluation task
 
 ## Citation
 
@@ -205,4 +214,5 @@ Gao, N., Marschall, M., Burry, J., Watkins, S., & Salim, F. (2023). *In-Gauge an
 **Inspiration paper**
 
 Wu, Y., Daoudi, M., & Amad, A. (2023). *Transformer-based self-supervised multimodal representation learning for wearable emotion recognition*. IEEE Transactions on Affective Computing, 15(1), 157-172.
+
 
